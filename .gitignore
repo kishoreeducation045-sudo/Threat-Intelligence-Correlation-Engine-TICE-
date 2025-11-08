@@ -46,4 +46,5 @@ frontend/.vite/
 # Report persistence artifacts
 data/
 reports.db
+.env:11
 
