@@ -12,14 +12,17 @@ if not env_path.exists():
     load_dotenv()
 
 # API Keys (loaded from environment variables)
-VIRUSTOTAL_API_KEY = os.getenv("VIRUSTOTAL_API_KEY", "")
-OTX_API_KEY = os.getenv("OTX_API_KEY", "")
+ABUSEIPDB_API_KEY = os.getenv("ABUSEIPDB_API_KEY", "")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
 # Base URLs
-VIRUSTOTAL_BASE_URL = "https://www.virustotal.com/api/v3"
-OTX_BASE_URL = "https://otx.alienvault.com/api/v1"
+ABUSEIPDB_BASE_URL = "https://api.abuseipdb.com/api/v2"
 IPAPI_BASE_URL = "http://ip-api.com"
+
+# Persistence settings
+REPORT_DB_PATH = os.getenv("REPORT_DB_PATH", str(project_root / "data" / "reports.db"))
+REPORT_RETENTION_DAYS = int(os.getenv("REPORT_RETENTION_DAYS", "7"))
+REPORT_RETENTION_LIMIT = int(os.getenv("REPORT_RETENTION_LIMIT", "1000"))
 
 # Request configuration
 REQUEST_TIMEOUT = 8  # seconds

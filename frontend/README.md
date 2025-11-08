@@ -10,6 +10,7 @@ Modern React-based frontend for the Cerberus Threat Intelligence Correlation Eng
 - 📝 Detailed threat narratives
 - 🏷️ Threat category tags
 - 📈 Real-time backend health monitoring
+- 🧱 Live threat feed dashboard with auto-refreshing cards, top risk list, and trend sparkline
 
 ## Setup
 
@@ -62,4 +63,5 @@ npm run preview
 3. Enter an IPv4 address in the input field
 4. Click "Analyze" to get threat intelligence data
 5. View the detailed analysis results including threat score, risk level, categories, and narrative
+6. Switch to the Dashboard tab to monitor recent analyses and aggregate insights
 

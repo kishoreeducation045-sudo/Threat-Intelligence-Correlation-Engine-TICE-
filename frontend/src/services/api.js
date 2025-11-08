@@ -32,5 +32,48 @@ export const analyzeIP = async (ipAddress) => {
   }
 }
 
+export const downloadAnalysis = async (ipAddress) => {
+  try {
+    const response = await api.post(
+      '/api/v1/analyze/export',
+      { ip_address: ipAddress },
+      { responseType: 'blob' }
+    )
+
+    const disposition = response.headers['content-disposition'] || ''
+    const filenameMatch = disposition.match(/filename="?([^";]+)"?/i)
+    const filename = filenameMatch ? filenameMatch[1] : `${ipAddress}_analysis.json`
+
+    return { blob: response.data, filename }
+  } catch (error) {
+    if (error.response) {
+      throw new Error(error.response.data.detail || 'Download failed')
+    }
+    throw new Error(`Network error: ${error.message}`)
+  }
+}
+
+export const fetchRecentReports = async (limit = 50) => {
+  try {
+    const response = await api.get('/api/v1/reports/recent', {
+      params: { limit },
+    })
+    return response.data
+  } catch (error) {
+    throw new Error(`Failed to load recent reports: ${error.message}`)
+  }
+}
+
+export const fetchReportStats = async (hours = 24) => {
+  try {
+    const response = await api.get('/api/v1/reports/stats', {
+      params: { hours },
+    })
+    return response.data
+  } catch (error) {
+    throw new Error(`Failed to load report stats: ${error.message}`)
+  }
+}
+
 export default api
 

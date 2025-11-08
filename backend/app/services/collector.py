@@ -3,10 +3,8 @@ from typing import Dict, Any
 import aiohttp
 from .utils import with_retries
 from ..config import (
-    VIRUSTOTAL_API_KEY,
-    OTX_API_KEY,
-    VIRUSTOTAL_BASE_URL,
-    OTX_BASE_URL,
+    ABUSEIPDB_API_KEY,
+    ABUSEIPDB_BASE_URL,
     IPAPI_BASE_URL,
     REQUEST_TIMEOUT,
 )
@@ -14,18 +12,16 @@ from ..config import (
 
 class ThreatIntelCollector:
     """
-    Collects threat intelligence data from VirusTotal, AlienVault OTX, and ip-api.com.
+    Collects threat intelligence data from AbuseIPDB and ip-api.com.
     """
 
-    def __init__(self, vt_key: str = None, otx_key: str = None):
-        self.vt_key = vt_key or VIRUSTOTAL_API_KEY
-        self.otx_key = otx_key or OTX_API_KEY
+    def __init__(self, abuseipdb_key: str = None):
+        self.abuseipdb_key = abuseipdb_key or ABUSEIPDB_API_KEY
 
     async def fetch_all(self, ip: str) -> Dict[str, Any]:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT)) as session:
             tasks = [
-                self.fetch_virustotal(session, ip),
-                self.fetch_otx(session, ip),
+                self.fetch_abuseipdb(session, ip),
                 self.fetch_geolocation(session, ip),
             ]
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -35,78 +31,96 @@ class ThreatIntelCollector:
             return val if not isinstance(val, Exception) else {"error": str(val)}
 
         return {
-            "virustotal": ok(0),
-            "otx": ok(1),
-            "geolocation": ok(2),
+            "abuseipdb": ok(0),
+            "geolocation": ok(1),
         }
 
     @with_retries()
-    async def fetch_virustotal(self, session: aiohttp.ClientSession, ip: str) -> Dict[str, Any]:
-        if not self.vt_key:
-            return {"error": "VIRUSTOTAL_API_KEY missing"}
-        url = f"{VIRUSTOTAL_BASE_URL}/ip_addresses/{ip}"
-        headers = {"x-apikey": self.vt_key}
-        async with session.get(url, headers=headers) as resp:
-            data = await resp.json(content_type=None)
-            if resp.status >= 400:
-                return {"error": data}
-            attrs = data.get("data", {}).get("attributes", {})
-            stats = attrs.get("last_analysis_stats", {})
-            return {
-                "raw": data,
-                "malicious": int(stats.get("malicious", 0)),
-                "suspicious": int(stats.get("suspicious", 0)),
-                "harmless": int(stats.get("harmless", 0)),
-                "undetected": int(stats.get("undetected", 0)),
-                "tags": attrs.get("tags", []),
-            }
-
-    @with_retries()
-    async def fetch_otx(self, session: aiohttp.ClientSession, ip: str) -> Dict[str, Any]:
+    async def fetch_abuseipdb(self, session: aiohttp.ClientSession, ip: str) -> Dict[str, Any]:
         """
-        Query AlienVault OTX for threat intelligence data.
-        Returns pulse count, reputation, and threat categories.
+        Query AbuseIPDB for threat intelligence data.
+        Returns abuse confidence score, total reports, and IP details.
         """
-        if not self.otx_key:
-            return {"error": "OTX_API_KEY missing"}
-        url = f"{OTX_BASE_URL}/indicators/IPv4/{ip}/general"
-        headers = {"X-OTX-API-KEY": self.otx_key}
-        async with session.get(url, headers=headers) as resp:
+        if not self.abuseipdb_key:
+            return {"error": "ABUSEIPDB_API_KEY missing"}
+        
+        url = f"{ABUSEIPDB_BASE_URL}/check"
+        headers = {
+            "Accept": "application/json",
+            "Key": self.abuseipdb_key
+        }
+        params = {
+            "ipAddress": ip,
+            "maxAgeInDays": 90,
+            "verbose": ""
+        }
+        
+        async with session.get(url, headers=headers, params=params) as resp:
             if resp.status >= 400:
                 error_data = await resp.json(content_type=None) if resp.content_type == "application/json" else {"error": f"HTTP {resp.status}"}
                 return {"error": error_data}
+            
             data = await resp.json(content_type=None)
+            ip_data = data.get("data", {})
             
-            # Extract key metrics from OTX response
-            pulse_count = len(data.get("pulses", []))
-            reputation = data.get("reputation", 0)
-            validation = data.get("validation", [])
+            # Extract key metrics from AbuseIPDB response
+            abuse_confidence_score = int(ip_data.get("abuseConfidenceScore", 0) or 0)
+            total_reports = int(ip_data.get("totalReports", 0) or 0)
+            num_distinct_users = int(ip_data.get("numDistinctUsers", 0) or 0)
+            is_whitelisted = bool(ip_data.get("isWhitelisted", False))
+            is_public = bool(ip_data.get("isPublic", True))
+            usage_type = ip_data.get("usageType", "Unknown")
+            is_tor = bool(ip_data.get("isTor", False))
+            country_code = ip_data.get("countryCode", "Unknown")
+            isp = ip_data.get("isp", "Unknown")
+            domain = ip_data.get("domain", "")
+            hostnames = ip_data.get("hostnames", [])
+            last_reported_at = ip_data.get("lastReportedAt", "")
             
-            # Extract threat types from pulses
+            # Calculate threat categories based on AbuseIPDB data
             threat_types = set()
-            for pulse in data.get("pulses", []):
-                for tag in pulse.get("tags", []):
-                    threat_types.add(tag.lower())
+            if abuse_confidence_score >= 75:
+                threat_types.add("malware")
+            if abuse_confidence_score >= 50:
+                threat_types.add("suspicious")
+            if is_tor:
+                threat_types.add("tor")
+            if total_reports >= 10:
+                threat_types.add("spam")
+            if total_reports >= 5:
+                threat_types.add("scanner")
             
-            # Calculate threat confidence based on pulse count and reputation
-            # OTX reputation: 0 = malicious, 1 = suspicious, 2 = unknown, 3 = good
-            # Convert to confidence score (0-100, higher = more malicious)
-            if reputation == 0:  # Malicious
-                threat_confidence = min(100, 70 + (pulse_count * 3))
-            elif reputation == 1:  # Suspicious
-                threat_confidence = min(100, 50 + (pulse_count * 2))
-            elif pulse_count > 0:  # Has pulses but unknown reputation
-                threat_confidence = min(100, 30 + (pulse_count * 2))
+            # Determine reputation based on abuse confidence score
+            # AbuseIPDB: 0-25 = good, 26-50 = suspicious, 51-75 = high risk, 76-100 = malicious
+            if abuse_confidence_score >= 76:
+                reputation = 0  # Malicious
+            elif abuse_confidence_score >= 51:
+                reputation = 1  # Suspicious/High risk
+            elif abuse_confidence_score >= 26:
+                reputation = 1  # Suspicious
             else:
-                threat_confidence = 0
+                reputation = 3 if abuse_confidence_score == 0 and total_reports == 0 else 2  # Good or Unknown
+            
+            # Use abuse confidence score directly as threat confidence
+            threat_confidence = float(abuse_confidence_score)
             
             return {
                 "raw": data,
-                "pulse_count": pulse_count,
-                "reputation": reputation,
+                "abuse_confidence_score": abuse_confidence_score,
+                "total_reports": total_reports,
+                "num_distinct_users": num_distinct_users,
+                "is_whitelisted": is_whitelisted,
+                "is_public": is_public,
+                "usage_type": usage_type,
+                "is_tor": is_tor,
+                "country_code": country_code,
+                "isp": isp,
+                "domain": domain,
+                "hostnames": hostnames,
+                "last_reported_at": last_reported_at,
                 "threat_confidence": threat_confidence,
                 "threat_types": list(threat_types),
-                "validation": validation,
+                "reputation": reputation,
             }
 
     @with_retries()

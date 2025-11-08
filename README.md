@@ -18,8 +18,7 @@ A comprehensive threat intelligence platform that correlates data from multiple 
 - Python 3.8+ (for backend)
 - Node.js 16+ and npm (for frontend)
 - API Keys:
-  - VirusTotal API Key: https://www.virustotal.com/gui/my-apikey
-  - AlienVault OTX API Key: https://otx.alienvault.com/api
+  - **AbuseIPDB API Key** (required): https://www.abuseipdb.com/pricing
   - OpenAI API Key (optional): https://platform.openai.com/api-keys
 
 ### Backend Setup
@@ -42,10 +41,25 @@ pip install -r backend/requirements.txt
 3. Create a `.env` file in the project root with your API keys:
 
 ```env
-VIRUSTOTAL_API_KEY=your_virustotal_api_key_here
-OTX_API_KEY=your_alienvault_otx_api_key_here
-OPENAI_API_KEY=your_openai_api_key_here
+ABUSEIPDB_API_KEY=your_abuseipdb_api_key_here
+OPENAI_API_KEY=
 ```
+
+**Note:** Only the AbuseIPDB API key is required. The system uses AbuseIPDB for all threat intelligence data. OpenAI API key is optional and only needed if you want AI-generated threat narratives.
+
+**Get AbuseIPDB API Key:**
+- Visit https://www.abuseipdb.com/pricing to sign up for a free or paid plan
+- Get your API key from https://www.abuseipdb.com/account/api
+
+**Quick Setup:** Run `setup.bat` (Windows) or `./setup.sh` (Linux/Mac) to automatically set up everything.
+
+Optional persistence settings (defaults shown):
+```
+REPORT_DB_PATH=./data/reports.db
+REPORT_RETENTION_DAYS=7
+REPORT_RETENTION_LIMIT=1000
+```
+Set these in `.env` if you want to change the storage location or retention policy.
 
 4. Start the backend server:
 
@@ -81,17 +95,12 @@ The frontend will be available at `http://localhost:3000`
 
 1. Make sure both backend and frontend servers are running
 2. Open your browser and navigate to `http://localhost:3000`
-3. Enter an IPv4 address in the input field
-4. Click "Analyze" to get comprehensive threat intelligence data
-5. View the detailed analysis including:
-   - Threat score (0-100)
-   - Risk level (LOW, MEDIUM, HIGH, CRITICAL)
-   - Threat categories
-   - Country and ASN information
-   - Malicious sources count
-   - Abuse confidence score
-   - AI-generated threat narrative
-   - Triggered security rules
+3. Use the **Analyzer** tab to enter an IPv4 address and click "Analyze"
+4. Review the detailed report (threat score, risk level, categories, geolocation, triggered rules, narrative)
+5. Switch to the **Dashboard** tab to view the live threat feed wall:
+   - Auto-refreshing cards of recent analyses with severity badges
+   - Top risk list, activity trend sparkline, and common category chips
+   - Stored analyses sourced from the on-disk report repository
 
 ## API Endpoints
 
@@ -101,15 +110,19 @@ The frontend will be available at `http://localhost:3000`
 - `POST /api/v1/analyze` - Analyze an IP address
   - Request body: `{ "ip_address": "1.2.3.4" }`
   - Returns: Detailed threat analysis
+- `GET /api/v1/reports/recent` - Fetch recent stored analyses (supports `limit` query parameter)
+- `GET /api/v1/reports/stats` - Aggregate dashboard statistics (supports `hours` window parameter)
 
 ## Development
 
 ### Backend
 
 The backend is built with FastAPI and includes:
-- Threat intelligence collection from VirusTotal and AlienVault OTX
+- Threat intelligence collection from AbuseIPDB
+- Geolocation data from ip-api.com (free, no API key required)
 - Data normalization and scoring
 - AI-powered narrative generation (optional, requires OpenAI API key)
+- Persistent report repository for the live threat feed dashboard
 
 ### Frontend
 
@@ -118,6 +131,7 @@ The frontend is built with React and Vite, featuring:
 - Real-time backend health monitoring
 - Visual threat indicators
 - Detailed analysis results display
+- War-room style dashboard with auto-refreshing feed, trend charts, and category insights
 
 ## Building for Production
 

@@ -14,22 +14,22 @@ pip install -r backend/requirements.txt
 
 ```bash
 # Using PowerShell environment variables:
-$env:VIRUSTOTAL_API_KEY="your_vt_key"
-$env:OTX_API_KEY="your_otx_key"
+$env:ABUSEIPDB_API_KEY="your_abuseipdb_key"
 # Optional if you want AI narratives
 $env:OPENAI_API_KEY="your_openai_key"
 ```
 
 Or create a `.env` file in the project root with:
 ```
-VIRUSTOTAL_API_KEY=your_virustotal_api_key_here
-OTX_API_KEY=your_alienvault_otx_api_key_here
+ABUSEIPDB_API_KEY=your_abuseipdb_api_key_here
 OPENAI_API_KEY=your_openai_api_key_here
+REPORT_DB_PATH=./data/reports.db
+REPORT_RETENTION_DAYS=7
+REPORT_RETENTION_LIMIT=1000
 ```
 
 **Get API Keys:**
-- VirusTotal: https://www.virustotal.com/gui/my-apikey
-- AlienVault OTX: https://otx.alienvault.com/api (Sign up and get your API key from your profile)
+- AbuseIPDB: https://www.abuseipdb.com/pricing (Sign up and get your API key from your account) - **Required**
 - OpenAI: https://platform.openai.com/api-keys (Optional, for AI-generated narratives)
 
 3. Run the server:
@@ -41,5 +41,7 @@ uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
 ## Endpoints
 - GET `/api/health` – health check
 - POST `/api/v1/analyze` – analyze IP (body: `{ "ip_address": "1.2.3.4" }`)
+- GET `/api/v1/reports/recent` – paginated recent stored analyses (`limit` query parameter)
+- GET `/api/v1/reports/stats` – aggregate dashboard metrics (`hours` query parameter)
 
 

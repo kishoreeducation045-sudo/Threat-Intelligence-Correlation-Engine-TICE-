@@ -1,0 +1,25 @@
+.sparkline {
+  width: 100%;
+  height: auto;
+}
+
+.sparkline-line {
+  fill: none;
+  stroke: #4b556e;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.sparkline-dot {
+  fill: #f28b8b;
+  opacity: 0.9;
+}
+
+.sparkline-fill {
+  fill: url(#sparkline-gradient);
+}
+
+.sparkline-empty {
+  color: rgba(49, 56, 81, 0.55);
+  font-size: 0.85rem;
+}
